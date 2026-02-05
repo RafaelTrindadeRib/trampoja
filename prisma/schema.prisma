@@ -1,0 +1,269 @@
+// -------------------------------------------------------
+// TrampoJa - Prisma Schema
+// PostgreSQL datasource with full relational model
+// -------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------
+// Enums
+// -------------------------------------------------------
+
+enum UserType {
+  WORKER
+  MARKET
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  UNAVAILABLE
+  BUSY
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ReviewType {
+  WORKER_TO_MARKET
+  MARKET_TO_WORKER
+}
+
+enum SkillType {
+  REPOSITOR
+  CAIXA
+  ESTOQUISTA
+  LIMPEZA
+  PROMOTOR
+  ATENDENTE
+  EMPACOTADOR
+  AUXILIAR_COZINHA
+  BALCONISTA
+  OUTRO
+}
+
+// -------------------------------------------------------
+// Models
+// -------------------------------------------------------
+
+model User {
+  id            String   @id @default(cuid())
+  clerkId       String   @unique
+  type          UserType
+  email         String   @unique
+  phone         String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  worker          Worker?
+  market          Market?
+  reviewsGiven    Review[] @relation("ReviewerRelation")
+  reviewsReceived Review[] @relation("RevieweeRelation")
+
+  @@map("users")
+}
+
+model Worker {
+  id            String      @id @default(cuid())
+  userId        String      @unique
+  cpf           String      @unique
+  firstName     String
+  lastName      String
+  photoUrl      String?
+  bio           String?
+  dateOfBirth   DateTime
+  address       String
+  city          String
+  state         String
+  zipCode       String
+  lat           Float
+  lng           Float
+  searchRadius  Int         @default(10)
+  minHourlyRate Decimal     @db.Decimal(10, 2)
+  skills        SkillType[]
+  level         Int         @default(1)
+  rating        Decimal     @default(0) @db.Decimal(3, 2)
+  totalJobs     Int         @default(0)
+  totalEarnings Decimal     @default(0) @db.Decimal(12, 2)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities Availability[]
+  proposals      Proposal[]
+  jobsAsWorker   Job[]
+  payments       Payment[]
+
+  @@index([city, state, isActive])
+  @@index([lat, lng])
+  @@map("workers")
+}
+
+model Market {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  cnpj        String   @unique
+  tradeName   String
+  legalName   String
+  photoUrl    String?
+  bannerUrl   String?
+  description String?
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  lat         Float
+  lng         Float
+  phone       String?
+  rating      Decimal  @default(0) @db.Decimal(3, 2)
+  totalJobs   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proposals Proposal[]
+  jobs      Job[]
+  payments  Payment[]
+
+  @@index([city, state, isActive])
+  @@map("markets")
+}
+
+model Availability {
+  id        String             @id @default(cuid())
+  workerId  String
+  date      DateTime           @db.Date
+  startTime String
+  endTime   String
+  status    AvailabilityStatus @default(AVAILABLE)
+  createdAt DateTime           @default(now())
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, date, startTime])
+  @@index([workerId, date])
+  @@map("availabilities")
+}
+
+model Proposal {
+  id             String         @id @default(cuid())
+  marketId       String
+  workerId       String?
+  title          String
+  description    String
+  date           DateTime       @db.Date
+  startTime      String
+  endTime        String
+  hourlyRate     Decimal        @db.Decimal(10, 2)
+  estimatedHours Decimal        @db.Decimal(5, 2)
+  totalAmount    Decimal        @db.Decimal(12, 2)
+  requiredSkills SkillType[]
+  address        String
+  lat            Float
+  lng            Float
+  status         ProposalStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  market Market  @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  worker Worker? @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  job    Job?
+
+  @@index([status, date])
+  @@map("proposals")
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  proposalId String    @unique
+  workerId   String
+  marketId   String
+  checkInAt  DateTime?
+  checkOutAt DateTime?
+  workerLat  Float?
+  workerLng  Float?
+  status     JobStatus @default(SCHEDULED)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  market   Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  payment  Payment?
+  reviews  Review[]
+
+  @@index([status])
+  @@map("jobs")
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  jobId        String        @unique
+  workerId     String
+  marketId     String
+  amount       Decimal       @db.Decimal(12, 2)
+  platformFee  Decimal       @db.Decimal(12, 2)
+  workerAmount Decimal       @db.Decimal(12, 2)
+  externalId   String?
+  pixKey       String?
+  status       PaymentStatus @default(PENDING)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Review {
+  id         String     @id @default(cuid())
+  jobId      String
+  reviewerId String
+  revieweeId String
+  type       ReviewType
+  rating     Int
+  comment    String?
+  createdAt  DateTime   @default(now())
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("RevieweeRelation", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, reviewerId])
+  @@map("reviews")
+}
