@@ -260,7 +260,7 @@ async function main() {
   lastWeek.setHours(0, 0, 0, 0)
 
   // Proposal 1: PENDING - from Mercado Liberdade, no worker assigned yet
-  const proposal1 = await prisma.proposal.create({
+  await prisma.proposal.create({
     data: {
       marketId: market1.id,
       title: 'Repositor para turno da manha',
@@ -305,7 +305,7 @@ async function main() {
   })
 
   // Proposal 3: EXPIRED - from Mercado Liberdade, was for last week
-  const proposal3 = await prisma.proposal.create({
+  await prisma.proposal.create({
     data: {
       marketId: market1.id,
       workerId: worker1.id,
@@ -334,7 +334,7 @@ async function main() {
   // ---------------------------------------------------
 
   // Job 1: SCHEDULED (tied to accepted proposal2)
-  const job1 = await prisma.job.create({
+  await prisma.job.create({
     data: {
       proposalId: proposal2.id,
       workerId: worker2.id,

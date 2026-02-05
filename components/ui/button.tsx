@@ -100,7 +100,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ) {
         const { className: childClassName, ...childProps } = child.props
         return (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           <child.type
             {...childProps}
             className={cn(

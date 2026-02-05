@@ -5,12 +5,16 @@ const withPWA = withPWAInit({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: true,
-  skipWaiting: true,
   fallbacks: {
     document: '/offline',
   },
+  workboxOptions: {
+    skipWaiting: true,
+  },
 })
 
-const nextConfig: NextConfig = {}
+const nextConfig: NextConfig = {
+  turbopack: {},
+}
 
 export default withPWA(nextConfig)
